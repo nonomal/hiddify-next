@@ -9,7 +9,7 @@ import Foundation
 import Combine
 
 public class AlertsEventHandler: NSObject, FlutterPlugin, FlutterStreamHandler {
-    static let name = "\(FilePath.packageName)/service.alerts"
+    static let name = "\(Bundle.main.serviceIdentifier)/service.alerts"
     
     private var channel: FlutterEventChannel?
     
@@ -17,7 +17,7 @@ public class AlertsEventHandler: NSObject, FlutterPlugin, FlutterStreamHandler {
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         let instance = AlertsEventHandler()
-        instance.channel = FlutterEventChannel(name: Self.name, binaryMessenger: registrar.messenger())
+        instance.channel = FlutterEventChannel(name: Self.name, binaryMessenger: registrar.messenger(), codec: FlutterJSONMethodCodec())
         instance.channel?.setStreamHandler(instance)
     }
     

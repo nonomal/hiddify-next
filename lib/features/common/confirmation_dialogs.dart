@@ -12,7 +12,7 @@ Future<bool> showConfirmationDialog(
     builder: (context) {
       final localizations = MaterialLocalizations.of(context);
       return AlertDialog(
-        icon: const Icon(Icons.delete_forever),
+        icon: icon != null ? Icon(icon) : null,
         title: Text(title),
         content: Text(message),
         actions: [

@@ -1,15 +1,17 @@
+---
 name: Bug Report
-description: Report a bug encountered while using Hiddify Next
-labels: ['bug']
+description: Report a bug encountered while using Hiddify
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        If you have a feature idea or need help, please go to [our Telegram group](https://t.me/hiddify_board).
+        ## Only English
+        For access to our user forums, please join [our Telegram group](https://t.me/hiddify_board).
 
         Please make sure to provide a descriptive, deterministic, and reproducible report. It saves time for both the developers and users who are looking for solutions. Providing as much information as possible, including screenshots and logs, is highly appreciated. This will help us to better understand the issue and respond more effectively.
 
-        Please DO NOT use this template to ask questions. There are other appropriate channels to ask questions. This template is strictly for reporting bugs.
+        Please DO NOT use this template to ask questions. You can join [our Telegram group](https://t.me/hiddify_board) or [our Website](https://hiddify.com/app) to ask questions. This template is strictly for reporting bugs.
   - type: checkboxes
     id: confirm-search
     attributes:
@@ -18,6 +20,36 @@ body:
       options:
         - label: I searched and no similar issues were found
           required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform/OS
+      description: What platform are you seeing the problem on?
+      multiple: true
+      options:
+        - Android
+        - Windows
+        - macOS
+        - Linux
+        - Android TV
+        - iOS
+        - HiddifyCli (Core)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: "OS version"
+      description: "Please provide the operating system version. (Example: Windows 10)"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Hiddify Version
+      description: "What version of Hiddify are you using?"
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
@@ -29,9 +61,9 @@ body:
   - type: textarea
     id: reproduce
     attributes:
-      label: Reproduce the Bug
+      label: Minimal Reproducible Example (MRE)
       description: |
-        Please tell us the steps to reproduce the bug.
+        Please tell us the steps to reproduce the bug. A [Minimal Reproducible Example (MRE)](https://stackoverflow.com/help/minimal-reproducible-example) is needed.
       placeholder: |
         1. Go to '...'
         2. Click on '....'
@@ -47,28 +79,6 @@ body:
         Please tell us what's the behavior you expect.
     validations:
       required: false
-  - type: input
-    id: version
-    attributes:
-      label: Version
-      description: What version of Hiddify Next are you using?
-      placeholder: v1.3.8 etc
-    validations:
-      required: true
-  - type: dropdown
-    id: platform
-    attributes:
-      label: Platform/OS
-      description: What platform are you seeing the problem on?
-      multiple: true
-      options:
-        - Android
-        - Windows
-        - macOS
-        - Linux
-        - iOS
-    validations:
-      required: true
   - type: textarea
     id: additional
     attributes:
@@ -78,12 +88,19 @@ body:
     validations:
       required: false
   - type: textarea
+    id: configs
+    attributes:
+      label: Application Config Options
+      description: Please copy and paste Application config.
+    validations:
+      required: false
+  - type: textarea
     id: logs
     attributes:
       label: Relevant log output
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
-      render: shell
-
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code.
+    validations:
+      required: false
   - type: checkboxes
     id: ask-pr
     attributes:

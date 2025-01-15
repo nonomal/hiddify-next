@@ -49,6 +49,8 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         flutterEngine.plugins.add(EventHandler())
         flutterEngine.plugins.add(LogHandler())
         flutterEngine.plugins.add(GroupsChannel(lifecycleScope))
+        flutterEngine.plugins.add(ActiveGroupsChannel(lifecycleScope))
+        flutterEngine.plugins.add(StatsChannel(lifecycleScope))
     }
 
     fun reconnect() {
@@ -141,6 +143,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
                 startService()
             } else onServiceAlert(Alert.RequestNotificationPermission, null)
         }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

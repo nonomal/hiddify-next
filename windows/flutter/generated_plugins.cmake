@@ -3,7 +3,8 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  protocol_handler
+  dynamic_color
+  protocol_handler_windows
   screen_retriever
   sentry_flutter
   share_plus

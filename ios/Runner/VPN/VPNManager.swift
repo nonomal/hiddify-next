@@ -83,30 +83,42 @@ class VPNManager: ObservableObject {
     func setup() async throws {
         // guard !loaded else { return }
         loaded = true
-        try await loadVPNPreference()
+        do {
+            try await loadVPNPreference()
+        } catch {
+            print(error.localizedDescription)
+        }
     }
     
     private func loadVPNPreference() async throws {
-        let managers = try await NETunnelProviderManager.loadAllFromPreferences()
-        if let manager = managers.first {
-            self.manager = manager
-            return
+        do {
+            let managers = try await NETunnelProviderManager.loadAllFromPreferences()
+            if let manager = managers.first {
+                self.manager = manager
+                return
+            }
+            let newManager = NETunnelProviderManager()
+            let `protocol` = NETunnelProviderProtocol()
+            `protocol`.providerBundleIdentifier = Bundle.main.baseBundleIdentifier + ".SingBoxPacketTunnel"
+            `protocol`.serverAddress = "localhost"
+            newManager.protocolConfiguration = `protocol`
+            newManager.localizedDescription = "Hiddify"
+            try await newManager.saveToPreferences()
+            try await newManager.loadFromPreferences()
+            self.manager = newManager
+        } catch {
+            print(error.localizedDescription)
         }
-        let newManager = NETunnelProviderManager()
-        let `protocol` = NETunnelProviderProtocol()
-        `protocol`.providerBundleIdentifier = "\(FilePath.packageName).SingBoxPacketTunnel"
-        `protocol`.serverAddress = "Hiddify"
-        newManager.protocolConfiguration = `protocol`
-        newManager.localizedDescription = "Hiddify"
-        try await newManager.saveToPreferences()
-        try await newManager.loadFromPreferences()
-        self.manager = newManager
     }
     
     private func enableVPNManager() async throws {
         manager.isEnabled = true
-        try await manager.saveToPreferences()
-        try await manager.loadFromPreferences()
+        do {
+            try await manager.saveToPreferences()
+            try await manager.loadFromPreferences()
+        } catch {
+            print(error.localizedDescription)
+        }
     }
     
     @MainActor private func set(upload: Int64, download: Int64) {
@@ -115,13 +127,13 @@ class VPNManager: ObservableObject {
     }
     
     var isAnyVPNConnected: Bool {
-        let cfDict = CFNetworkCopySystemProxySettings()
-        let nsDict = cfDict!.takeRetainedValue() as NSDictionary
+        guard let cfDict = CFNetworkCopySystemProxySettings() else { return false }
+        let nsDict = cfDict.takeRetainedValue() as NSDictionary
         guard let keys = nsDict["__SCOPED__"] as? NSDictionary else {
             return false
         }
         for key: String in keys.allKeys as! [String] {
-            if (key == "tap" || key == "tun" || key == "ppp" || key == "ipsec" || key == "ipsec0" || key == "utun1" || key == "utun2") {
+            if key == "tap" || key == "tun" || key == "ppp" || key == "ipsec" || key == "ipsec0" {
                 return true
             } else if key.starts(with: "utun") {
                 return true
@@ -138,11 +150,15 @@ class VPNManager: ObservableObject {
         $state.filter { $0 == .disconnected || $0 == .invalid }.first().sink { [weak self] _ in
             Task { [weak self] () in
                 self?.manager = .shared()
-                let managers = try? await NETunnelProviderManager.loadAllFromPreferences()
-                for manager in managers ?? [] {
-                    try? await manager.removeFromPreferences()
+                do {
+                    let managers = try await NETunnelProviderManager.loadAllFromPreferences()
+                    for manager in managers ?? [] {
+                        try await manager.removeFromPreferences()
+                    }
+                    try await self?.loadVPNPreference()
+                } catch {
+                    print(error.localizedDescription)
                 }
-                try? await self?.loadVPNPreference()
             }
         }.store(in: &cancelBag)
         
@@ -155,31 +171,39 @@ class VPNManager: ObservableObject {
         }
         guard state == .connected else { return }
         guard let connection = manager.connection as? NETunnelProviderSession else { return }
-        try? connection.sendProviderMessage("stats".data(using: .utf8)!) { [weak self] response in
-            guard
-                let response,
-                let response = String(data: response, encoding: .utf8)
-            else { return }
-            let responseComponents = response.components(separatedBy: ",")
-            guard
-                responseComponents.count == 2,
-                let upload = Int64(responseComponents[0]),
-                let download = Int64(responseComponents[1])
-            else { return }
-            Task { [upload, download, weak self] () in
-                await self?.set(upload: upload, download: download)
+        do {
+            try connection.sendProviderMessage("stats".data(using: .utf8)!) { [weak self] response in
+                guard
+                    let response,
+                    let response = String(data: response, encoding: .utf8)
+                else { return }
+                let responseComponents = response.components(separatedBy: ",")
+                guard
+                    responseComponents.count == 2,
+                    let upload = Int64(responseComponents[0]),
+                    let download = Int64(responseComponents[1])
+                else { return }
+                Task { [upload, download, weak self] () in
+                    await self?.set(upload: upload, download: download)
+                }
             }
+        } catch {
+            print(error.localizedDescription)
         }
     }
     
     func connect(with config: String, disableMemoryLimit: Bool = false) async throws {
         await set(upload: 0, download: 0)
         guard state == .disconnected else { return }
-        try await enableVPNManager()
-        try manager.connection.startVPNTunnel(options: [
-            "Config": config as NSString,
-            "DisableMemoryLimit": (disableMemoryLimit ? "YES" : "NO") as NSString,
-        ])
+        do {
+            try await enableVPNManager()
+            try manager.connection.startVPNTunnel(options: [
+                "Config": config as NSString,
+                "DisableMemoryLimit": (disableMemoryLimit ? "YES" : "NO") as NSString,
+            ])
+        } catch {
+            print(error.localizedDescription)
+        }
         connectTime = .now
     }
     
@@ -187,6 +211,4 @@ class VPNManager: ObservableObject {
         guard state == .connected else { return }
         manager.connection.stopVPNTunnel()
     }
-    
 }
-

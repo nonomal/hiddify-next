@@ -14,6 +14,7 @@ import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import com.hiddify.hiddify.Application
+import com.hiddify.hiddify.R
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.Action
 import com.hiddify.hiddify.constant.Alert
@@ -23,7 +24,6 @@ import io.nekohasekai.libbox.BoxService
 import io.nekohasekai.libbox.CommandServer
 import io.nekohasekai.libbox.CommandServerHandler
 import io.nekohasekai.libbox.Libbox
-import io.nekohasekai.libbox.PProfServer
 import io.nekohasekai.libbox.PlatformInterface
 import io.nekohasekai.libbox.SystemProxyStatus
 import io.nekohasekai.mobile.Mobile
@@ -36,8 +36,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 class BoxService(
-    private val service: Service,
-    private val platformInterface: PlatformInterface
+        private val service: Service,
+        private val platformInterface: PlatformInterface
 ) : CommandServerHandler {
 
     companion object {
@@ -48,6 +48,7 @@ class BoxService(
         private fun initialize() {
             if (initializeOnce) return
             val baseDir = Application.application.filesDir
+            
             baseDir.mkdirs()
             workingDir = Application.application.getExternalFilesDir(null) ?: return
             workingDir.mkdirs()
@@ -56,7 +57,8 @@ class BoxService(
             Log.d(TAG, "base dir: ${baseDir.path}")
             Log.d(TAG, "working dir: ${workingDir.path}")
             Log.d(TAG, "temp dir: ${tempDir.path}")
-            Libbox.setup(baseDir.path, workingDir.path, tempDir.path, false)
+            
+            Mobile.setup(baseDir.path, workingDir.path, tempDir.path, false)
             Libbox.redirectStderr(File(workingDir, "stderr.log").path)
             initializeOnce = true
             return
@@ -72,6 +74,10 @@ class BoxService(
             }
         }
 
+        fun buildConfig(path: String, options: String): String {
+            return Mobile.buildConfig(path, options)
+        }
+
         fun start() {
             val intent = runBlocking {
                 withContext(Dispatchers.IO) {
@@ -83,17 +89,17 @@ class BoxService(
 
         fun stop() {
             Application.application.sendBroadcast(
-                Intent(Action.SERVICE_CLOSE).setPackage(
-                    Application.application.packageName
-                )
+                    Intent(Action.SERVICE_CLOSE).setPackage(
+                            Application.application.packageName
+                    )
             )
         }
 
         fun reload() {
             Application.application.sendBroadcast(
-                Intent(Action.SERVICE_RELOAD).setPackage(
-                    Application.application.packageName
-                )
+                    Intent(Action.SERVICE_RELOAD).setPackage(
+                            Application.application.packageName
+                    )
             )
         }
     }
@@ -102,10 +108,9 @@ class BoxService(
 
     private val status = MutableLiveData(Status.Stopped)
     private val binder = ServiceBinder(status)
-    private val notification = ServiceNotification(service)
+    private val notification = ServiceNotification(status, service)
     private var boxService: BoxService? = null
     private var commandServer: CommandServer? = null
-    private var pprofServer: PProfServer? = null
     private var receiverRegistered = false
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -129,20 +134,26 @@ class BoxService(
 
     private fun startCommandServer() {
         val commandServer =
-            CommandServer(this, 300)
+                CommandServer(this, 300)
         commandServer.start()
         this.commandServer = commandServer
     }
 
+    private var activeProfileName = ""
     private suspend fun startService(delayStart: Boolean = false) {
         try {
             Log.d(TAG, "starting service")
+            withContext(Dispatchers.Main) {
+                notification.show(activeProfileName, R.string.status_starting)
+            }
 
             val selectedConfigPath = Settings.activeConfigPath
             if (selectedConfigPath.isBlank()) {
                 stopAndAlert(Alert.EmptyConfiguration)
                 return
             }
+
+            activeProfileName = Settings.activeProfileName
 
             val configOptions = Settings.configOptions
             if (configOptions.isBlank()) {
@@ -163,6 +174,7 @@ class BoxService(
             }
 
             withContext(Dispatchers.Main) {
+                notification.show(activeProfileName, R.string.status_starting)
                 binder.broadcast {
                     it.onServiceResetLogs(listOf())
                 }
@@ -180,13 +192,18 @@ class BoxService(
             }
 
             if (delayStart) {
-                delay(200L)
+                delay(1000L)
             }
 
             newService.start()
             boxService = newService
             commandServer?.setService(boxService)
             status.postValue(Status.Started)
+
+            withContext(Dispatchers.Main) {
+                notification.show(activeProfileName, R.string.status_started)
+            }
+            notification.start()
         } catch (e: Exception) {
             stopAndAlert(Alert.StartService, e.message)
             return
@@ -194,23 +211,24 @@ class BoxService(
     }
 
     override fun serviceReload() {
+        notification.close()
         status.postValue(Status.Starting)
-        GlobalScope.launch(Dispatchers.IO) {
-            val pfd = fileDescriptor
-            if (pfd != null) {
-                pfd.close()
-                fileDescriptor = null
+        val pfd = fileDescriptor
+        if (pfd != null) {
+            pfd.close()
+            fileDescriptor = null
+        }
+        commandServer?.setService(null)
+        boxService?.apply {
+            runCatching {
+                close()
+            }.onFailure {
+                writeLog("service: error when closing: $it")
             }
-            commandServer?.setService(null)
-            boxService?.apply {
-                runCatching {
-                    close()
-                }.onFailure {
-                    writeLog("service: error when closing: $it")
-                }
-                Seq.destroyRef(refnum)
-            }
-            boxService = null
+            Seq.destroyRef(refnum)
+        }
+        boxService = null
+        runBlocking {
             startService(true)
         }
     }
@@ -231,7 +249,7 @@ class BoxService(
     @RequiresApi(Build.VERSION_CODES.M)
     private fun serviceUpdateIdleMode() {
         if (Application.powerManager.isDeviceIdleMode) {
-            boxService?.sleep()
+            boxService?.pause()
         } else {
             boxService?.wake()
         }
@@ -276,6 +294,9 @@ class BoxService(
             }
         }
     }
+    override fun postServiceClose() {
+        // Not used on Android
+    }
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
         Settings.startedByUser = false
@@ -307,7 +328,6 @@ class BoxService(
             receiverRegistered = true
         }
 
-        notification.show()
         GlobalScope.launch(Dispatchers.IO) {
             Settings.startedByUser = true
             initialize()

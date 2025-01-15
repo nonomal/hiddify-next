@@ -12,7 +12,6 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.ObjectInputStream
 
-
 object Settings {
 
     private val preferences by lazy {
@@ -51,8 +50,12 @@ object Settings {
         get() = preferences.getString(SettingsKey.ACTIVE_CONFIG_PATH, "")!!
         set(value) = preferences.edit().putString(SettingsKey.ACTIVE_CONFIG_PATH, value).apply()
 
+    var activeProfileName: String
+        get() = preferences.getString(SettingsKey.ACTIVE_PROFILE_NAME, "")!!
+        set(value) = preferences.edit().putString(SettingsKey.ACTIVE_PROFILE_NAME, value).apply()
+
     var serviceMode: String
-        get() = preferences.getString(SettingsKey.SERVICE_MODE, ServiceMode.NORMAL)!!
+        get() = preferences.getString(SettingsKey.SERVICE_MODE, ServiceMode.VPN)!!
         set(value) = preferences.edit().putString(SettingsKey.SERVICE_MODE, value).apply()
 
     var configOptions: String
@@ -63,13 +66,15 @@ object Settings {
         get() = preferences.getBoolean(SettingsKey.DEBUG_MODE, false)
         set(value) = preferences.edit().putBoolean(SettingsKey.DEBUG_MODE, value).apply()
 
-    val enableTun: Boolean
-        get() = preferences.getBoolean(SettingsKey.ENABLE_TUN, true)
-
     var disableMemoryLimit: Boolean
         get() = preferences.getBoolean(SettingsKey.DISABLE_MEMORY_LIMIT, false)
         set(value) =
             preferences.edit().putBoolean(SettingsKey.DISABLE_MEMORY_LIMIT, value).apply()
+
+    var dynamicNotification: Boolean
+        get() = preferences.getBoolean(SettingsKey.DYNAMIC_NOTIFICATION, true)
+        set(value) =
+            preferences.edit().putBoolean(SettingsKey.DYNAMIC_NOTIFICATION, value).apply()
 
     var systemProxyEnabled: Boolean
         get() = preferences.getBoolean(SettingsKey.SYSTEM_PROXY_ENABLED, true)
@@ -87,23 +92,24 @@ object Settings {
         }
     }
 
+    private var currentServiceMode : String? = null
+
     suspend fun rebuildServiceMode(): Boolean {
         var newMode = ServiceMode.NORMAL
         try {
-            if (needVPNService()) {
+            if (serviceMode == ServiceMode.VPN) {
                 newMode = ServiceMode.VPN
             }
         } catch (_: Exception) {
         }
-        if (serviceMode == newMode) {
+        if (currentServiceMode == newMode) {
             return false
         }
-        serviceMode = newMode
+        currentServiceMode = newMode
         return true
     }
 
     private suspend fun needVPNService(): Boolean {
-        if (enableTun) return true
         val filePath = activeConfigPath
         if (filePath.isBlank()) return false
         val content = JSONObject(File(filePath).readText())

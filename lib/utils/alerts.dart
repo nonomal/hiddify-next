@@ -1,5 +1,6 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:toastification/toastification.dart';
 
 class CustomAlertDialog extends StatelessWidget {
   const CustomAlertDialog({
@@ -49,7 +50,17 @@ class CustomAlertDialog extends StatelessWidget {
   }
 }
 
-enum AlertType { info, error, success }
+enum AlertType {
+  info,
+  error,
+  success;
+
+  ToastificationType get _toastificationType => switch (this) {
+        success => ToastificationType.success,
+        error => ToastificationType.error,
+        info => ToastificationType.info,
+      };
+}
 
 class CustomToast extends StatelessWidget {
   const CustomToast(
@@ -63,13 +74,13 @@ class CustomToast extends StatelessWidget {
     this.message, {
     this.duration = const Duration(seconds: 5),
   })  : type = AlertType.error,
-        icon = Icons.error;
+        icon = FluentIcons.error_circle_24_regular;
 
   const CustomToast.success(
     this.message, {
     this.duration = const Duration(seconds: 3),
   })  : type = AlertType.success,
-        icon = Icons.check;
+        icon = FluentIcons.checkmark_24_regular;
 
   final String message;
   final AlertType type;
@@ -105,11 +116,18 @@ class CustomToast extends StatelessWidget {
   }
 
   void show(BuildContext context) {
-    final fToast = FToast().init(context);
-    fToast.showToast(
-      child: this,
-      gravity: ToastGravity.BOTTOM,
-      toastDuration: duration,
+    toastification.show(
+      context: context,
+      title: Text(message),
+      type: type._toastificationType,
+      alignment: Alignment.bottomLeft,
+      autoCloseDuration: duration,
+      style: ToastificationStyle.fillColored,
+      pauseOnHover: true,
+      showProgressBar: false,
+      dragToClose: true,
+      closeOnClick: true,
+      closeButtonShowType: CloseButtonShowType.onHover,
     );
   }
 }

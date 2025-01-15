@@ -1,8 +1,9 @@
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_adaptive_scaffold/flutter_adaptive_scaffold.dart';
-import 'package:hiddify/core/core_providers.dart';
+import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/router/router.dart';
-import 'package:hiddify/features/common/side_bar_stats_overview.dart';
+import 'package:hiddify/features/stats/widget/side_bar_stats_overview.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 abstract interface class RootScaffold {
@@ -25,23 +26,27 @@ class AdaptiveRootScaffold extends HookConsumerWidget {
 
     final destinations = [
       NavigationDestination(
-        icon: const Icon(Icons.power_settings_new),
+        icon: const Icon(FluentIcons.power_20_filled),
         label: t.home.pageTitle,
       ),
       NavigationDestination(
-        icon: const Icon(Icons.filter_list),
+        icon: const Icon(FluentIcons.filter_20_filled),
         label: t.proxies.pageTitle,
       ),
       NavigationDestination(
-        icon: const Icon(Icons.article),
-        label: t.logs.pageTitle,
+        icon: const Icon(FluentIcons.box_edit_20_filled),
+        label: t.config.pageTitle,
       ),
       NavigationDestination(
-        icon: const Icon(Icons.settings),
+        icon: const Icon(FluentIcons.settings_20_filled),
         label: t.settings.pageTitle,
       ),
       NavigationDestination(
-        icon: const Icon(Icons.info),
+        icon: const Icon(FluentIcons.document_text_20_filled),
+        label: t.logs.pageTitle,
+      ),
+      NavigationDestination(
+        icon: const Icon(FluentIcons.info_20_filled),
         label: t.about.pageTitle,
       ),
     ];
@@ -106,18 +111,16 @@ class _CustomAdaptiveScaffold extends HookConsumerWidget {
     return Scaffold(
       key: RootScaffold.stateKey,
       drawer: Breakpoints.small.isActive(context)
-          ? SafeArea(
-              child: Drawer(
-                width: (MediaQuery.sizeOf(context).width * 0.88).clamp(0, 304),
-                child: NavigationRail(
-                  extended: true,
-                  selectedIndex: selectedWithOffset(drawerDestinationRange),
-                  destinations: destinationsSlice(drawerDestinationRange)
-                      .map((_) => AdaptiveScaffold.toRailDestination(_))
-                      .toList(),
-                  onDestinationSelected: (index) =>
-                      selectWithOffset(index, drawerDestinationRange),
-                ),
+          ? Drawer(
+              width: (MediaQuery.sizeOf(context).width * 0.88).clamp(1, 304),
+              child: NavigationRail(
+                extended: true,
+                selectedIndex: selectedWithOffset(drawerDestinationRange),
+                destinations: destinationsSlice(drawerDestinationRange)
+                    .map((dest) => AdaptiveScaffold.toRailDestination(dest))
+                    .toList(),
+                onDestinationSelected: (index) =>
+                    selectWithOffset(index, drawerDestinationRange),
               ),
             )
           : null,
@@ -129,7 +132,7 @@ class _CustomAdaptiveScaffold extends HookConsumerWidget {
               builder: (_) => AdaptiveScaffold.standardNavigationRail(
                 selectedIndex: selectedIndex,
                 destinations: destinations
-                    .map((_) => AdaptiveScaffold.toRailDestination(_))
+                    .map((dest) => AdaptiveScaffold.toRailDestination(dest))
                     .toList(),
                 onDestinationSelected: onSelectedIndexChange,
               ),
@@ -140,7 +143,7 @@ class _CustomAdaptiveScaffold extends HookConsumerWidget {
                 extended: true,
                 selectedIndex: selectedIndex,
                 destinations: destinations
-                    .map((_) => AdaptiveScaffold.toRailDestination(_))
+                    .map((dest) => AdaptiveScaffold.toRailDestination(dest))
                     .toList(),
                 onDestinationSelected: onSelectedIndexChange,
                 trailing: sidebarTrailing,
@@ -148,23 +151,6 @@ class _CustomAdaptiveScaffold extends HookConsumerWidget {
             ),
           },
         ),
-        bottomNavigation: useBottomSheet ||
-                Breakpoints.smallMobile.isActive(context)
-            ? SlotLayout(
-                config: <Breakpoint, SlotLayoutConfig>{
-                  Breakpoints.small: SlotLayout.from(
-                    key: const Key('bottomNavigation'),
-                    builder: (_) =>
-                        AdaptiveScaffold.standardBottomNavigationBar(
-                      currentIndex: selectedWithOffset(bottomDestinationRange),
-                      destinations: destinationsSlice(bottomDestinationRange),
-                      onDestinationSelected: (index) =>
-                          selectWithOffset(index, bottomDestinationRange),
-                    ),
-                  ),
-                },
-              )
-            : null,
         body: SlotLayout(
           config: <Breakpoint, SlotLayoutConfig?>{
             Breakpoints.standard: SlotLayout.from(
@@ -176,6 +162,15 @@ class _CustomAdaptiveScaffold extends HookConsumerWidget {
           },
         ),
       ),
+      // AdaptiveLayout bottom sheet has accessibility issues
+      bottomNavigationBar: useBottomSheet && Breakpoints.small.isActive(context)
+          ? NavigationBar(
+              selectedIndex: selectedWithOffset(bottomDestinationRange) ?? 0,
+              destinations: destinationsSlice(bottomDestinationRange),
+              onDestinationSelected: (index) =>
+                  selectWithOffset(index, bottomDestinationRange),
+            )
+          : null,
     );
   }
 }

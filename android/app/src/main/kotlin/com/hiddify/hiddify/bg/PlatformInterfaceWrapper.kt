@@ -10,6 +10,7 @@ import io.nekohasekai.libbox.NetworkInterfaceIterator
 import io.nekohasekai.libbox.PlatformInterface
 import io.nekohasekai.libbox.StringIterator
 import io.nekohasekai.libbox.TunOptions
+import io.nekohasekai.libbox.WIFIState
 import java.net.Inet6Address
 import java.net.InetSocketAddress
 import java.net.InterfaceAddress
@@ -97,8 +98,16 @@ interface PlatformInterfaceWrapper : PlatformInterface {
     override fun underNetworkExtension(): Boolean {
         return false
     }
+    
+    override fun includeAllNetworks(): Boolean {
+        return false
+    }
 
     override fun clearDNSCache() {
+    }
+
+    override fun readWIFIState(): WIFIState? {
+        return null
     }
 
     private class InterfaceArray(private val iterator: Enumeration<NetworkInterface>) :

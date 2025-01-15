@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hiddify/core/prefs/prefs.dart';
+import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/router/routes.dart';
-import 'package:hiddify/services/deep_link_service.dart';
+import 'package:hiddify/features/deep_link/notifier/deep_link_notifier.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -21,7 +21,7 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 GoRouter router(RouterRef ref) {
   final notifier = ref.watch(routerListenableProvider.notifier);
   final deepLink = ref.listen(
-    deepLinkServiceProvider,
+    deepLinkNotifierProvider,
     (_, next) async {
       if (next case AsyncData(value: final link?)) {
         await ref.state.push(AddProfileRoute(url: link.url).location);
@@ -38,7 +38,10 @@ GoRouter router(RouterRef ref) {
     navigatorKey: rootNavigatorKey,
     initialLocation: initialLocation,
     debugLogDiagnostics: true,
-    routes: useMobileRouter ? mobileRoutes : desktopRoutes,
+    routes: [
+      if (useMobileRouter) $mobileWrapperRoute else $desktopWrapperRoute,
+      $introRoute,
+    ],
     refreshListenable: notifier,
     redirect: notifier.redirect,
     observers: [
@@ -47,29 +50,30 @@ GoRouter router(RouterRef ref) {
   );
 }
 
+final tabLocations = [
+  const HomeRoute().location,
+  const ProxiesRoute().location,
+  const ConfigOptionsRoute().location,
+  const SettingsRoute().location,
+  const LogsOverviewRoute().location,
+  const AboutRoute().location,
+];
+
 int getCurrentIndex(BuildContext context) {
   final String location = GoRouterState.of(context).uri.path;
   if (location == const HomeRoute().location) return 0;
-  if (location.startsWith(const ProxiesRoute().location)) return 1;
-  if (location.startsWith(const LogsRoute().location)) return 2;
-  if (location.startsWith(const SettingsRoute().location)) return 3;
-  if (location.startsWith(const AboutRoute().location)) return 4;
+  var index = 0;
+  for (final tab in tabLocations.sublist(1)) {
+    index++;
+    if (location.startsWith(tab)) return index;
+  }
   return 0;
 }
 
 void switchTab(int index, BuildContext context) {
-  switch (index) {
-    case 0:
-      const HomeRoute().go(context);
-    case 1:
-      const ProxiesRoute().go(context);
-    case 2:
-      const LogsRoute().go(context);
-    case 3:
-      const SettingsRoute().go(context);
-    case 4:
-      const AboutRoute().go(context);
-  }
+  assert(index >= 0 && index < tabLocations.length);
+  final location = tabLocations[index];
+  return context.go(location);
 }
 
 @riverpod
@@ -81,7 +85,7 @@ class RouterListenable extends _$RouterListenable
 
   @override
   Future<void> build() async {
-    _introCompleted = ref.watch(introCompletedProvider);
+    _introCompleted = ref.watch(Preferences.introCompleted);
 
     ref.listenSelf((_, __) {
       if (state.isLoading) return;
@@ -90,6 +94,7 @@ class RouterListenable extends _$RouterListenable
     });
   }
 
+// ignore: avoid_build_context_in_providers
   String? redirect(BuildContext context, GoRouterState state) {
     // if (this.state.isLoading || this.state.hasError) return null;
 
